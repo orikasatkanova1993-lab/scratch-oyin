@@ -1,661 +1,106 @@
+
 <!DOCTYPE html>
 <html lang="kk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scratch: Кейіпкерлер тілдесуі — Саусақпен басқарылатын ойын</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- MediaPipe Hands -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <!-- Inter шрифті -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-            background: #0f172a;
-        }
-        .mirror-video {
-            transform: scaleX(-1);
-        }
-        /* Scratch блоктарының стилі */
-        .scratch-block {
-            position: relative;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font-weight: 700;
-            font-size: 13px;
-            color: white;
-            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-            user-select: none;
-        }
-        /* Оқиғалар (Сары/Қызғылт сары) */
-        .block-events {
-            background-color: #FFBF00;
-            border: 1px solid #CC9900;
-            border-top-left-radius: 18px;
-            border-top-right-radius: 18px;
-            color: #1e293b;
-        }
-        /* Келбет (Күлгін - Looks) */
-        .block-looks {
-            background-color: #9966FF;
-            border: 1px solid #774DCB;
-        }
-        /* Басқару (Қызғылт сары - Control) */
-        .block-control {
-            background-color: #FFAB19;
-            border: 1px solid #CF8B17;
-        }
-        /* Бос ұяшық (Slot) */
-        .slot-zone {
-            border: 2px dashed rgba(148, 163, 184, 0.5);
-            background: rgba(30, 41, 59, 0.6);
-            min-height: 40px;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-        .slot-zone.highlight {
-            border-color: #38bdf8;
-            background: rgba(56, 189, 248, 0.2);
-            transform: scale(1.02);
-        }
-        /* Сөйлеу көпіршігі */
-        @keyframes popIn {
-            0% { transform: scale(0.7); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .speech-bubble {
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        /* Саусақ меңзері */
-        #hand-cursor {
-            pointer-events: none;
-            transition: transform 0.06s ease-out;
-            box-shadow: 0 0 20px rgba(56, 189, 248, 0.9);
-        }
-        .pinch-grab {
-            transform: scale(0.8) !important;
-            background-color: #f59e0b !important;
-            border-color: #fef08a !important;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Scratch: Кейіпкерлер тілдесуі</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      margin: 0;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+    .mirror-video { transform: scaleX(-1); }
+    .scratch-block {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #fff;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+      transition: transform 0.12s ease, opacity 0.15s ease;
+    }
+    .scratch-block:active { cursor: grabbing; transform: scale(0.98); }
+    .block-looks { background-color: #9966ff; }
+    .block-control { background-color: #ffab19; color: #1e293b; }
+    .drop-zone {
+      min-height: 54px;
+      border-radius: 10px;
+      border: 1.5px dashed rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.65);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .drop-zone.drag-over {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.14);
+    }
+    #hand-cursor {
+      position: fixed;
+      width: 24px;
+      height: 24px;
+      border-radius: 9999px;
+      border: 3px solid #38bdf8;
+      background: rgba(56, 189, 248, 0.25);
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      display: none;
+    }
+    #hand-cursor.pinching {
+      background: #22c55e;
+      border-color: #bbf7d0;
+      transform: translate(-50%, -50%) scale(1.25);
+    }
+  </style>
 </head>
-<body class="text-white h-screen w-screen flex flex-col justify-between select-none">
+<body class="p-2 sm:p-4">
+  <div id="hand-cursor"></div>
 
-    <!-- Жоғарғы тақырып және басқару панелі -->
-    <header class="z-20 px-4 py-2.5 bg-slate-900/90 backdrop-blur-md border-b border-slate-700 flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center text-lg font-extrabold shadow">
-                S
-            </div>
-            <div>
-                <h1 class="text-base md:text-lg font-extrabold text-white">Scratch: «Келбет» блогымен диалог құру</h1>
-                <p class="text-xs text-slate-400">Саусақпен блоктарды сүйреп, кейіпкерлердің сөйлесу алгоритмін құрастыр</p>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <div id="status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-                Камера қосылуда...
-            </div>
-            <button id="run-flag-btn" onclick="runScratchProject()" class="interactive-btn px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-1.5 shadow-lg transition active:scale-95">
-                <span>🚩</span> Іске қосу (Тестілеу)
-            </button>
-            <button onclick="resetGame()" class="interactive-btn px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold transition">
-                🔄 Қайта бастау
-            </button>
-        </div>
+  <div class="max-w-6xl mx-auto space-y-3">
+    <!-- Жоғарғы панель -->
+    <header class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 class="text-base sm:text-xl font-extrabold text-white">
+          Scratch: «Келбет» және «Басқару» блоктарымен диалог құру
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-400">
+          Блоктарды саусақпен/тынтуірмен сүйреп немесе басып орналастырыңыз
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="toggle-camera-btn" type="button" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-sky-600 hover:bg-sky-500 text-white">
+          Камераны қосу
+        </button>
+        <button id="run-btn" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950">
+          ▶ Іске қосу
+        </button>
+        <button id="reset-btn" type="button" class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-700 hover:bg-slate-600 text-white">
+          ↺ Қайта бастау
+        </button>
+      </div>
     </header>
 
-    <!-- Негізгі жұмыс алаңы -->
-    <main class="relative flex-1 w-full h-full overflow-hidden flex flex-col">
-        
-        <!-- Камера фоны -->
-        <video id="input_video" class="hidden" playsinline></video>
-        <canvas id="output_canvas" class="absolute inset-0 w-full h-full object-cover mirror-video opacity-25 pointer-events-none"></canvas>
-
-        <!-- Саусақ меңзері (Қолмен ұстап сүйреу индикаторы) -->
-        <div id="hand-cursor" class="hidden fixed z-50 w-11 h-11 -ml-5 -mt-5 rounded-full bg-sky-400/90 border-4 border-white flex items-center justify-center text-base">
-            👆
-        </div>
-        <!-- Саусақпен ұсталған блоктың көшірмесі (Drag Preview) -->
-        <div id="dragged-ghost" class="hidden fixed z-50 pointer-events-none opacity-95 scale-105 shadow-2xl"></div>
-
-        <!-- Нұсқаулық жолағы -->
-        <div class="z-10 mx-auto mt-2 px-4 py-1.5 bg-slate-800/90 border border-slate-600 rounded-xl text-center max-w-3xl shadow-md">
-            <p id="guide-text" class="text-xs md:text-sm font-medium text-sky-300">
-                1-қадам: Ортадағы <span class="text-purple-400 font-bold">«Келбет» (күлгін)</span> және <span class="text-amber-400 font-bold">«Басқару» (сары)</span> блоктарын саусақпен шымшып (👌) ұстап, кейіпкерлердің код аймағына апарыңыз!
-            </p>
-        </div>
-
-        <!-- 3 Бағанды Scratch Ортасы -->
-        <div class="z-10 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 overflow-y-auto">
-            
-            <!-- 1-БАҒАН: ДИАС КЕЙІПКЕРІНІҢ СКРИПТІ (4 баған) -->
-            <div class="lg:col-span-4 bg-slate-900/85 backdrop-blur-md border-2 border-sky-500/40 rounded-2xl p-3 flex flex-col justify-between shadow-xl">
-                <div>
-                    <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-2xl">👦🏻</span>
-                            <div>
-                                <h2 class="text-sm font-extrabold text-sky-300">1-кейіпкер: ДИАС</h2>
-                                <p class="text-[11px] text-slate-400">Бірінші болып сәлемдеседі</p>
-                            </div>
-                        </div>
-                        <span class="px-2 py-0.5 bg-sky-500/20 text-sky-300 text-[11px] rounded-md font-bold">Скрипт 1</span>
-                    </div>
-
-                    <!-- Дайын тұрған Оқиға блогы -->
-                    <div class="space-y-1.5">
-                        <div class="scratch-block block-events flex items-center gap-1.5">
-                            <span>🚩</span> Жасыл жалауша басылғанда
-                        </div>
-
-                        <!-- Ұяшық 1: Диастың сөзі -->
-                        <div id="slot-dias-1" data-expected="dias-say-1" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            1. «Келбет» блогы: Сәлемдесу сөзін қойыңыз
-                        </div>
-
-                        <!-- Ұяшық 2: Диастың күту уақыты -->
-                        <div id="slot-dias-2" data-expected="wait-2" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            2. «Басқару» блогы: Күту уақытын қойыңыз
-                        </div>
-
-                        <!-- Ұяшық 3: Диастың екінші сөзі -->
-                        <div id="slot-dias-3" data-expected="dias-say-2" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            3. «Келбет» блогы: Сұрақ қою сөзін қойыңыз
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between">
-                    <span>Күйі:</span>
-                    <span id="status-dias" class="text-amber-400 font-semibold">Блоктар толық емес (0/3)</span>
-                </div>
-            </div>
-
-            <!-- 2-БАҒАН: ОРТАЛЫҚ БЛОКТАР ПАЛИТРАСЫ ЖӘНЕ САХНА (4 баған) -->
-            <div class="lg:col-span-4 flex flex-col gap-3">
-                
-                <!-- Scratch Сахнасы (Кейіпкерлер диалогы көрінетін экран) -->
-                <div class="bg-gradient-to-b from-sky-200 to-indigo-100 rounded-2xl p-3 border-2 border-slate-600 shadow-inner relative h-48 flex flex-col justify-between text-slate-900">
-                    <div class="flex justify-between items-center text-[11px] font-bold text-slate-600">
-                        <span>🖥️ Scratch Сахнасы</span>
-                        <span id="stage-timer" class="px-2 py-0.5 bg-white/80 rounded-full text-indigo-700">Дайын</span>
-                    </div>
-
-                    <!-- Сөйлеу көпіршіктері -->
-                    <div class="grid grid-cols-2 gap-2 my-auto items-end px-1">
-                        <!-- Диас сахнада -->
-                        <div class="flex flex-col items-center">
-                            <div id="stage-bubble-dias" class="hidden speech-bubble bg-white border-2 border-purple-500 rounded-xl p-2 text-center shadow-md mb-1 w-full">
-                                <p id="stage-text-dias" class="text-xs font-extrabold text-slate-900"></p>
-                            </div>
-                            <div class="text-4xl">👦🏻</div>
-                            <span class="text-[11px] font-bold bg-sky-600 text-white px-2 rounded-full mt-0.5">Диас</span>
-                        </div>
-
-                        <!-- Саяна сахнада -->
-                        <div class="flex flex-col items-center">
-                            <div id="stage-bubble-sayana" class="hidden speech-bubble bg-white border-2 border-purple-500 rounded-xl p-2 text-center shadow-md mb-1 w-full">
-                                <p id="stage-text-sayana" class="text-xs font-extrabold text-slate-900"></p>
-                            </div>
-                            <div class="text-4xl">👧🏻</div>
-                            <span class="text-[11px] font-bold bg-pink-600 text-white px-2 rounded-full mt-0.5">Саяна</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Блоктар қоймасы (Саусақпен ұстап сүйрейтін блоктар) -->
-                <div class="flex-1 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-2xl p-3 flex flex-col justify-between">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-extrabold text-purple-300 uppercase tracking-wider">🧩 КЕЛБЕТ және БАСҚАРУ блоктары</span>
-                        <span class="text-[11px] text-slate-400">Саусақпен шымшып сүйреңіз 👌</span>
-                    </div>
-
-                    <div id="blocks-palette" class="space-y-2 overflow-y-auto pr-1">
-                        <!-- Блок 1 -->
-                        <div draggable="true" data-block-id="dias-say-1" class="draggable-block scratch-block block-looks">
-                            💬 «Сәлем, Саяна!» деп 2 секунд айту
-                        </div>
-                        <!-- Блок 2 -->
-                        <div draggable="true" data-block-id="wait-2" class="draggable-block scratch-block block-control">
-                            ⏳ 2 секунд күту
-                        </div>
-                        <!-- Блок 3 -->
-                        <div draggable="true" data-block-id="sayana-say-1" class="draggable-block scratch-block block-looks">
-                            💬 «Сәлем, Диас! Қалың қалай?» деп 2 сек айту
-                        </div>
-                        <!-- Блок 4 -->
-                        <div draggable="true" data-block-id="dias-say-2" class="draggable-block scratch-block block-looks">
-                            💬 «Жақсы! Бүгін диалог құрамыз ба?» 2 сек айту
-                        </div>
-                        <!-- Блок 5 -->
-                        <div draggable="true" data-block-id="sayana-say-2" class="draggable-block scratch-block block-looks">
-                            💬 «Әрине! Келбет блогын қолданайық!» 2 сек айту
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- 3-БАҒАН: САЯНА КЕЙІПКЕРІНІҢ СКРИПТІ (4 баған) -->
-            <div class="lg:col-span-4 bg-slate-900/85 backdrop-blur-md border-2 border-pink-500/40 rounded-2xl p-3 flex flex-col justify-between shadow-xl">
-                <div>
-                    <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-2xl">👧🏻</span>
-                            <div>
-                                <h2 class="text-sm font-extrabold text-pink-300">2-кейіпкер: САЯНА</h2>
-                                <p class="text-[11px] text-slate-400">Күтіп барып жауап береді</p>
-                            </div>
-                        </div>
-                        <span class="px-2 py-0.5 bg-pink-500/20 text-pink-300 text-[11px] rounded-md font-bold">Скрипт 2</span>
-                    </div>
-
-                    <!-- Дайын тұрған Оқиға блогы -->
-                    <div class="space-y-1.5">
-                        <div class="scratch-block block-events flex items-center gap-1.5">
-                            <span>🚩</span> Жасыл жалауша басылғанда
-                        </div>
-
-                        <!-- Ұяшық 1: Саянаның күту уақыты -->
-                        <div id="slot-sayana-1" data-expected="wait-2" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            1. «Басқару» блогы: Диас сөйлегенше күту
-                        </div>
-
-                        <!-- Ұяшық 2: Саянаның жауабы -->
-                        <div id="slot-sayana-2" data-expected="sayana-say-1" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            2. «Келбет» блогы: Сәлемге жауап айту
-                        </div>
-
-                        <!-- Ұяшық 3: Саянаның күтуі (немесе жауабы) -->
-                        <div id="slot-sayana-3" data-expected="sayana-say-2" class="slot-zone p-2 flex items-center justify-center text-xs text-slate-400">
-                            3. «Келбет» блогы: Қорытынды жауап айту
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-400 flex justify-between">
-                    <span>Күйі:</span>
-                    <span id="status-sayana" class="text-amber-400 font-semibold">Блоктар толық емес (0/3)</span>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Нәтиже / Бағалау терезесі -->
-        <div id="result-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div class="bg-slate-800 border-2 border-emerald-400 rounded-3xl p-6 max-w-md w-full text-center shadow-2xl speech-bubble">
-                <div class="text-5xl mb-3">🏆🤖💬</div>
-                <h2 class="text-xl font-extrabold text-emerald-400 mb-2">Оқу мақсаты орындалды!</h2>
-                <p class="text-slate-300 text-sm mb-4">
-                    Сіз <b>«Келбет»</b> блогының сөйлеу командалары мен <b>«Күту»</b> блогын дұрыс ретпен қолданып, екі кейіпкер арасында шынайы мәтіндік диалог құра білдіңіз!
-                </p>
-                <div class="bg-slate-900/80 rounded-xl p-3 text-left text-xs text-slate-300 space-y-1 mb-5 border border-slate-700">
-                    <p>✅ 1-дескриптор: Екі кейіпкер таңдалды — <b>1 балл</b></p>
-                    <p>✅ 2-дескриптор: «Келбет» сөйлеу блоктары қолданылды — <b>1 балл</b></p>
-                    <p>✅ 3-дескриптор: Кезектесіп сөйлеу реті сақталды — <b>1 балл</b></p>
-                </div>
-                <button onclick="resetGame()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg transition">
-                    Қайта орындау
-                </button>
-            </div>
-        </div>
-
-    </main>
-
-    <script>
-        // ==========================================
-        // 1. ОЙЫН ЛОГИКАСЫ ЖӘНЕ SCRATCH БЛОКТАРЫ
-        // ==========================================
-        const blockTemplates = {
-            'dias-say-1': { text: '💬 «Сәлем, Саяна!» деп 2 секунд айту', type: 'block-looks', speech: 'Сәлем, Саяна!' },
-            'wait-2':     { text: '⏳ 2 секунд күту', type: 'block-control', speech: null },
-            'sayana-say-1': { text: '💬 «Сәлем, Диас! Қалың қалай?» деп 2 сек айту', type: 'block-looks', speech: 'Сәлем, Диас! Қалың қалай?' },
-            'dias-say-2': { text: '💬 «Жақсы! Бүгін диалог құрамыз ба?» 2 сек айту', type: 'block-looks', speech: 'Жақсы! Бүгін диалог құрамыз ба?' },
-            'sayana-say-2': { text: '💬 «Әрине! Келбет блогын қолданайық!» 2 сек айту', type: 'block-looks', speech: 'Әрине! Келбет блогын қолданайық!' }
-        };
-
-        // Ұяшықтардың ағымдағы күйі
-        const slotState = {
-            'slot-dias-1': null,
-            'slot-dias-2': null,
-            'slot-dias-3': null,
-            'slot-sayana-1': null,
-            'slot-sayana-2': null,
-            'slot-sayana-3': null
-        };
-
-        let currentlyDraggedBlockId = null;
-        let isRunning = false;
-
-        // Дыбыс эффектісі (Web Audio API)
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playTone(freq = 500, duration = 0.12) {
-            try {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            } catch (e) {}
-        }
-
-        // Блокты ұяшыққа орналастыру
-        function placeBlockInSlot(slotEl, blockId) {
-            const expectedId = slotEl.getAttribute('data-expected');
-            const guideEl = document.getElementById('guide-text');
-
-            if (blockId === expectedId) {
-                const info = blockTemplates[blockId];
-                slotState[slotEl.id] = blockId;
-                slotEl.innerHTML = `<div class="scratch-block ${info.type} w-full text-left">${info.text}</div>`;
-                slotEl.classList.remove('slot-zone', 'border-dashed');
-                slotEl.classList.add('p-0');
-                playTone(620, 0.15);
-                updateScriptCounters();
-                guideEl.innerHTML = `<span class="text-emerald-400 font-bold">✅ Дұрыс!</span> Блок өз орнына қойылды. Келесі блокты таңдаңыз!`;
-            } else {
-                playTone(200, 0.2);
-                slotEl.classList.add('border-rose-500', 'bg-rose-500/20');
-                setTimeout(() => slotEl.classList.remove('border-rose-500', 'bg-rose-500/20'), 600);
-                guideEl.innerHTML = `<span class="text-rose-400 font-bold">⚠️ Қате реттілік!</span> Бұл жерге басқа команда керек (мәтін мен күту уақытын тексеріңіз).`;
-            }
-        }
-
-        // Есептегіштерді жаңарту
-        function updateScriptCounters() {
-            const diasCount = [slotState['slot-dias-1'], slotState['slot-dias-2'], slotState['slot-dias-3']].filter(Boolean).length;
-            const sayanaCount = [slotState['slot-sayana-1'], slotState['slot-sayana-2'], slotState['slot-sayana-3']].filter(Boolean).length;
-
-            const statusDias = document.getElementById('status-dias');
-            const statusSayana = document.getElementById('status-sayana');
-
-            statusDias.textContent = diasCount === 3 ? '✅ Дайын (3/3)' : `Блоктар жиналуда (${diasCount}/3)`;
-            statusDias.className = diasCount === 3 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-semibold';
-
-            statusSayana.textContent = sayanaCount === 3 ? '✅ Дайын (3/3)' : `Блоктар жиналуда (${sayanaCount}/3)`;
-            statusSayana.className = sayanaCount === 3 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-semibold';
-
-            if (diasCount === 3 && sayanaCount === 3) {
-                document.getElementById('guide-text').innerHTML = 
-                    `🎉 Барлық блоктар құрастырылды! Енді жоғарғы <span class="text-emerald-400 font-bold">«🚩 Іске қосу»</span> батырмасын саусақпен басыңыз!`;
-            }
-        }
-
-        // Scratch жобасын іске қосу (Диалогты анимациямен көрсету)
-        async function runScratchProject() {
-            if (isRunning) return;
-            const allFilled = Object.values(slotState).every(val => val !== null);
-            const guideEl = document.getElementById('guide-text');
-
-            if (!allFilled) {
-                playTone(220, 0.25);
-                guideEl.innerHTML = `⚠️ Алдымен Диас пен Саянаның барлық 6 бос ұяшығын блоктармен толтырыңыз!`;
-                return;
-            }
-
-            isRunning = true;
-            playTone(750, 0.15);
-            const timerBadge = document.getElementById('stage-timer');
-            const bubbleDias = document.getElementById('stage-bubble-dias');
-            const bubbleSayana = document.getElementById('stage-bubble-sayana');
-            const textDias = document.getElementById('stage-text-dias');
-            const textSayana = document.getElementById('stage-text-sayana');
-
-            const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-
-            // 1-қадам: Диас сөйлейді (0 - 2 сек)
-            timerBadge.textContent = '0 - 2 сек';
-            bubbleSayana.classList.add('hidden');
-            textDias.textContent = blockTemplates['dias-say-1'].speech;
-            bubbleDias.classList.remove('hidden');
-            await sleep(2200);
-
-            // 2-қадам: Саяна жауап береді (2 - 4 сек)
-            timerBadge.textContent = '2 - 4 сек';
-            bubbleDias.classList.add('hidden');
-            textSayana.textContent = blockTemplates['sayana-say-1'].speech;
-            bubbleSayana.classList.remove('hidden');
-            await sleep(2200);
-
-            // 3-қадам: Диас сұрақ қояды (4 - 6 сек)
-            timerBadge.textContent = '4 - 6 сек';
-            bubbleSayana.classList.add('hidden');
-            textDias.textContent = blockTemplates['dias-say-2'].speech;
-            bubbleDias.classList.remove('hidden');
-            await sleep(2200);
-
-            // 4-қадам: Саяна қорытындылайды (6 - 8 сек)
-            timerBadge.textContent = '6 - 8 сек';
-            bubbleDias.classList.add('hidden');
-            textSayana.textContent = blockTemplates['sayana-say-2'].speech;
-            bubbleSayana.classList.remove('hidden');
-            await sleep(2400);
-
-            bubbleSayana.classList.add('hidden');
-            timerBadge.textContent = 'Аяқталды';
-            isRunning = false;
-
-            document.getElementById('result-modal').classList.remove('hidden');
-        }
-
-        // Ойынды бастапқы күйге келтіру
-        function resetGame() {
-            isRunning = false;
-            document.getElementById('result-modal').classList.add('hidden');
-            document.getElementById('stage-bubble-dias').classList.add('hidden');
-            document.getElementById('stage-bubble-sayana').classList.add('hidden');
-            document.getElementById('stage-timer').textContent = 'Дайын';
-
-            const defaultTexts = {
-                'slot-dias-1': '1. «Келбет» блогы: Сәлемдесу сөзін қойыңыз',
-                'slot-dias-2': '2. «Басқару» блогы: Күту уақытын қойыңыз',
-                'slot-dias-3': '3. «Келбет» блогы: Сұрақ қою сөзін қойыңыз',
-                'slot-sayana-1': '1. «Басқару» блогы: Диас сөйлегенше күту',
-                'slot-sayana-2': '2. «Келбет» блогы: Сәлемге жауап айту',
-                'slot-sayana-3': '3. «Келбет» блогы: Қорытынды жауап айту'
-            };
-
-            Object.keys(slotState).forEach(id => {
-                slotState[id] = null;
-                const el = document.getElementById(id);
-                el.className = 'slot-zone p-2 flex items-center justify-center text-xs text-slate-400';
-                el.textContent = defaultTexts[id];
-            });
-
-            updateScriptCounters();
-            document.getElementById('guide-text').innerHTML = 
-                `1-қадам: Ортадағы <span class="text-purple-400 font-bold">«Келбет»</span> және <span class="text-amber-400 font-bold">«Басқару»</span> блоктарын саусақпен ұстап, кейіпкерлердің код аймағына апарыңыз!`;
-        }
-
-        // Тінтуірмен (Drag & Drop) жұмыс істеу мүмкіндігі (Камерасыз тестілеу үшін)
-        document.querySelectorAll('.draggable-block').forEach(block => {
-            block.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', block.getAttribute('data-block-id'));
-            });
-        });
-
-        document.querySelectorAll('[data-expected]').forEach(slot => {
-            slot.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                slot.classList.add('highlight');
-            });
-            slot.addEventListener('dragleave', () => {
-                slot.classList.remove('highlight');
-            });
-            slot.addEventListener('drop', (e) => {
-                e.preventDefault();
-                slot.classList.remove('highlight');
-                const blockId = e.dataTransfer.getData('text/plain');
-                if (blockId) placeBlockInSlot(slot, blockId);
-            });
-        });
-
-        // ==========================================
-        // 2. MEDIAPIPE HANDS (САУСАҚПЕН ҰСТАП СҮЙРЕУ)
-        // ==========================================
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const handCursor = document.getElementById('hand-cursor');
-        const draggedGhost = document.getElementById('dragged-ghost');
-        const statusBadge = document.getElementById('status-badge');
-
-        let wasPinching = false;
-
-        function handleHandInteraction(x, y, isPinching) {
-            // 1. Жаңадан шымшып ұстаған сәт (Grab)
-            if (isPinching && !wasPinching) {
-                // Алдымен батырмаларды басқанын тексеру
-                const runBtn = document.getElementById('run-flag-btn');
-                const btnRect = runBtn.getBoundingClientRect();
-                if (x >= btnRect.left && x <= btnRect.right && y >= btnRect.top && y <= btnRect.bottom) {
-                    runScratchProject();
-                    return;
-                }
-
-                // Палитрадағы блокты ұстап алу
-                const blocks = document.querySelectorAll('.draggable-block');
-                blocks.forEach(b => {
-                    const r = b.getBoundingClientRect();
-                    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-                        currentlyDraggedBlockId = b.getAttribute('data-block-id');
-                        const info = blockTemplates[currentlyDraggedBlockId];
-                        draggedGhost.innerHTML = `<div class="scratch-block ${info.type}">${info.text}</div>`;
-                        draggedGhost.classList.remove('hidden');
-                        playTone(440, 0.08);
-                    }
-                });
-            }
-
-            // 2. Ұстап сүйреп бара жатқан сәт (Dragging)
-            if (isPinching && currentlyDraggedBlockId) {
-                draggedGhost.style.left = `${x + 12}px`;
-                draggedGhost.style.top = `${y - 15}px`;
-
-                // Қай ұяшықтың үстінде тұрғанын жарықтандыру
-                document.querySelectorAll('.slot-zone').forEach(slot => {
-                    const r = slot.getBoundingClientRect();
-                    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-                        slot.classList.add('highlight');
-                    } else {
-                        slot.classList.remove('highlight');
-                    }
-                });
-            }
-
-            // 3. Саусақты босатқан сәт (Drop)
-            if (!isPinching && wasPinching && currentlyDraggedBlockId) {
-                document.querySelectorAll('.slot-zone').forEach(slot => {
-                    slot.classList.remove('highlight');
-                    const r = slot.getBoundingClientRect();
-                    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-                        placeBlockInSlot(slot, currentlyDraggedBlockId);
-                    }
-                });
-
-                currentlyDraggedBlockId = null;
-                draggedGhost.classList.add('hidden');
-            }
-
-            wasPinching = isPinching;
-        }
-
-        function onResults(results) {
-            canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight;
-
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5';
-                statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Қол бақылауда';
-
-                const landmarks = results.multiHandLandmarks[0];
-                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#a855f7', lineWidth: 2 });
-                drawLandmarks(canvasCtx, landmarks, { color: '#38bdf8', lineWidth: 1, radius: 3 });
-
-                const indexTip = landmarks[8];
-                const thumbTip = landmarks[4];
-
-                const cursorX = (1 - indexTip.x) * window.innerWidth;
-                const cursorY = indexTip.y * window.innerHeight;
-
-                handCursor.classList.remove('hidden');
-                handCursor.style.left = `${cursorX}px`;
-                handCursor.style.top = `${cursorY}px`;
-
-                const dist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
-                const pinching = dist < 0.055;
-
-                if (pinching) {
-                    handCursor.classList.add('pinch-grab');
-                    handCursor.textContent = '👌';
-                } else {
-                    handCursor.classList.remove('pinch-grab');
-                    handCursor.textContent = '👆';
-                }
-
-                handleHandInteraction(cursorX, cursorY, pinching);
-            } else {
-                handCursor.classList.add('hidden');
-                statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5';
-                statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span> Қолыңызды көрсетіңіз';
-            }
-
-            canvasCtx.restore();
-        }
-
-        const hands = new Hands({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.65,
-            minTrackingConfidence: 0.65
-        });
-
-        hands.onResults(onResults);
-
-        async function startCamera() {
-            try {
-                const camera = new Camera(videoElement, {
-                    onFrame: async () => {
-                        await hands.send({ image: videoElement });
-                    },
-                    width: 1280,
-                    height: 720
-                });
-                await camera.start();
-            } catch (err) {
-                statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40';
-                statusBadge.textContent = 'Камера жоқ (Тінтуірмен сүйреңіз)';
-            }
-        }
-
-        window.onload = () => {
-            startCamera();
-        };
-    </script>
-</body>
-</html>
+    <!-- Камера терезесі (қосылғанда көрінеді) -->
+    <section id="camera-panel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3">
+      <div class="flex items-center justify-between mb-2">
+        <span id="camera-status" class="text-xs sm:text-sm text-sky-300 font-semibold">Камера дайындалуда...</span>
+        <span class="text-xs text-slate-400">Бас бармақ пен сұқ саусақты түйістіріп ұстаңыз</span>
+      </div>
+      <div class="relative w-full max-w-sm
